@@ -1,0 +1,3 @@
+comment = 'jsonpointer data type implementing RFC6901'
+default_version = '1.0'
+relocatable = false
