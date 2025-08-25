@@ -94,8 +94,9 @@ the string representation of the value cannot be cast into `int8` and
 
 The currently implemented functions are
 
+* `jsonptr_get_jsonb()`
+* `jsonptr_get_text()`
 * `jsonptr_get_int4()`
 * `jsonptr_get_int8()`
 * `jsonptr_get_numeric()`
-* `jsonptr_get_text()`
 * `jsonptr_get_timestamptz()`

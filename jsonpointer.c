@@ -21,6 +21,7 @@ PG_MODULE_MAGIC;
 PG_FUNCTION_INFO_V1(jsonpointer_in);
 PG_FUNCTION_INFO_V1(jsonpointer_out);
 
+PG_FUNCTION_INFO_V1(jsonptr_get_jsonb);
 PG_FUNCTION_INFO_V1(jsonptr_get_text);
 PG_FUNCTION_INFO_V1(jsonptr_get_int4);
 PG_FUNCTION_INFO_V1(jsonptr_get_int8);
@@ -33,6 +34,8 @@ PG_FUNCTION_INFO_V1(jsonptr_get_timestamptz);
 #define JPTR_PARSE_STATE_ESCAPE		2
 
 static inline void jsonpointer_collect_elem(StringInfo result, int32 keyStart);
+static Datum jsonptr_get_jsonb_datum(Jsonb *jb, JsonPointer *jsonptr,
+									 bool *isnull);
 static Datum jsonptr_get_text_datum(Jsonb *jb, JsonPointer *jsonptr,
 									bool *isnull);
 static Datum jsonptr_cast_datum1(Datum value, PGFunction func, bool *isnull,
@@ -273,6 +276,33 @@ jsonpointer_out(PG_FUNCTION_ARGS)
 }
 
 /*
+ * jsonptr_get_jsonb()
+ *
+ * 	SQL callable function to retrieve a jsonb version of the attribute
+ * 	specified by JsonPointer. This could be any subelement, not just a
+ * 	scalar value.
+ */
+Datum
+jsonptr_get_jsonb(PG_FUNCTION_ARGS)
+{
+	Jsonb		   *jb;
+	JsonPointer	   *jsonptr;
+	Datum			result;
+	bool			isnull;
+
+	/* nullonerror is ignored here because anything can be returned as text */
+
+	jb = PG_GETARG_JSONB_P(0);
+	jsonptr = (JsonPointer *)PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
+
+	result = jsonptr_get_jsonb_datum(jb, jsonptr, &isnull);
+	if (isnull)
+		PG_RETURN_NULL();
+	else
+		PG_RETURN_DATUM(result);
+}
+
+/*
  * jsonptr_get_text()
  *
  * 	SQL callable function to retrieve a text version of the attribute
@@ -443,6 +473,33 @@ jsonpointer_collect_elem(StringInfo result, int32 keyStart)
 	/* add this element */
 	appendBinaryStringInfoNT(result, &elem, sizeof(elem));
 	jptr->n_elem++;
+}
+
+/*
+ * jsonptr_get_jsonb_datum()
+ *
+ * 	Convert our JsonPointer into an array of text Datums and use
+ * 	jsonb_get_element() to find that value. Return it as a jsonb
+ * 	Datum for the caller to deal with any conversion that might
+ * 	be necessary.
+ */
+static Datum
+jsonptr_get_jsonb_datum(Jsonb *jb, JsonPointer *jsonptr, bool *isnull)
+{
+	JsonPointerElem	   *elem;
+	Datum			   *path;
+	int					i;
+
+	/* Convert all the JsonPointer elements into text Datums */
+	path = palloc(sizeof(Datum) * jsonptr->n_elem);
+	for (i = 0; i < jsonptr->n_elem; i++)
+	{
+		elem = &jsonptr->elem[i];
+		path[i] = (Datum)cstring_to_text(((char *)jsonptr)+elem->keyoff);
+	}
+
+	/* Let jsonb_get_element() do the actual work */
+	return jsonb_get_element(jb, path, jsonptr->n_elem, isnull, false);
 }
 
 /*
