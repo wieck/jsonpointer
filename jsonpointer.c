@@ -130,6 +130,7 @@ jsonpointer_in(PG_FUNCTION_ARGS)
 				{
 					case '0':
 					case '1':
+						state = JPTR_PARSE_STATE_ELEM;
 						break;
 
 					default:
