@@ -18,31 +18,31 @@ CREATE TYPE jsonpointer (
 	INTERNALLENGTH = VARIABLE);
 
 CREATE FUNCTION jsonptr_get_text(jsonb, jsonpointer,
-								 nullonerror bool = false)
+								 nullonerror bool = true)
 	RETURNS text
 	AS '$libdir/jsonpointer', 'jsonptr_get_text'
 	LANGUAGE C STRICT IMMUTABLE;
 
 CREATE FUNCTION jsonptr_get_int4(jsonb, jsonpointer,
-								 nullonerror bool = false)
+								 nullonerror bool = true)
 	RETURNS int4
 	AS '$libdir/jsonpointer', 'jsonptr_get_int4'
 	LANGUAGE C STRICT IMMUTABLE;
 
 CREATE FUNCTION jsonptr_get_int8(jsonb, jsonpointer,
-								 nullonerror bool = false)
+								 nullonerror bool = true)
 	RETURNS int8
 	AS '$libdir/jsonpointer', 'jsonptr_get_int8'
 	LANGUAGE C STRICT IMMUTABLE;
 
 CREATE FUNCTION jsonptr_get_numeric(jsonb, jsonpointer,
-									nullonerror bool = false)
+									nullonerror bool = true)
 	RETURNS numeric
 	AS '$libdir/jsonpointer', 'jsonptr_get_numeric'
 	LANGUAGE C STRICT IMMUTABLE;
 
 CREATE FUNCTION jsonptr_get_timestamptz(jsonb, jsonpointer,
-										nullonerror bool = false)
+										nullonerror bool = true)
 	RETURNS timestamptz
 	AS '$libdir/jsonpointer', 'jsonptr_get_timestamptz'
 	LANGUAGE C STRICT IMMUTABLE;
