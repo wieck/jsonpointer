@@ -33,7 +33,6 @@ PG_FUNCTION_INFO_V1(jsonptr_get_timestamptz);
 #define JPTR_PARSE_STATE_ELEM		1
 #define JPTR_PARSE_STATE_ESCAPE		2
 
-static inline void jsonpointer_collect_elem(StringInfo result, int32 keyStart);
 static Datum jsonptr_get_jsonb_datum(Jsonb *jb, JsonPointer *jsonptr,
 									 bool *isnull);
 static Datum jsonptr_get_text_datum(Jsonb *jb, JsonPointer *jsonptr,
@@ -55,10 +54,11 @@ jsonpointer_in(PG_FUNCTION_ARGS)
 	char				   *input = PG_GETARG_CSTRING(0);
 	StringInfoData			result;
 	JsonPointer			   *jsonptr;
+	text				   *elem = NULL;
+	int						elem_start = 0;
 	int						i;
 	int						state = JPTR_PARSE_STATE_INIT;
 	char				   *cp = input;
-	char				   *keyStart;
 
 	/*
 	 * Create the result in a StringInfo and initialize it to hold the
@@ -78,19 +78,28 @@ jsonpointer_in(PG_FUNCTION_ARGS)
 	 */
 	while (*cp)
 	{
+		int32	len_aligned;
+
 		switch (state)
 		{
 			case JPTR_PARSE_STATE_INIT:
-				/* the very first character of a JsonPointer must be '/' */
+				/*
+				 * the very first character of a non-empty JsonPointer
+				 * must be '/'
+				 */
 				if (*cp++ != '/')
 					elog(ERROR, "invalid JsonPointer '%s'", input);
 
 				/*
-				 * transition into element mode and remember where in the
-				 * input cstring this key started
+				 * transition into element mode and remember where the
+				 * text element starts, advance for the 4 vl_len_ bytes.
 				 */
-				keyStart = cp;
 				state = JPTR_PARSE_STATE_ELEM;
+
+				elem = (text *)(result.data + result.len);
+				elem_start = result.len;
+				for (i = 0; i < VARHDRSZ; i++)
+					appendStringInfoChar(&result, 0);
 				break;
 
 			case JPTR_PARSE_STATE_ELEM:
@@ -102,12 +111,27 @@ jsonpointer_in(PG_FUNCTION_ARGS)
 						 * this is a plain '/'.
 						 *
 						 * this marks the end of the previous path element
-						 * and the beginning of the next. Collect this one
-						 * and start the next.
+						 * and the beginning of the next. Set the VARSIZE
+						 * of this element and count it.
 						 */
-						jsonpointer_collect_elem(&result, keyStart - input);
 						cp++;
-						keyStart = cp;
+						SET_VARSIZE(elem, result.len - elem_start);
+						jsonptr->n_elem++;
+
+						/*
+						 * INTALING() for the next elem so it starts at
+						 * a 4-byte boundary in the result.
+						 */
+						len_aligned = INTALIGN(result.len);
+						while (result.len < len_aligned)
+							appendStringInfoChar(&result, 0);
+
+						/* Start the new element and add the vl_len_ */
+						elem = (text *)(result.data + result.len);
+						elem_start = result.len;
+						for (i = 0; i < VARHDRSZ; i++)
+							appendStringInfoChar(&result, 0);
+
 						break;
 
 					case '~':
@@ -118,7 +142,7 @@ jsonpointer_in(PG_FUNCTION_ARGS)
 
 					default:
 						/* just a regular path character, add and move on */
-						cp++;
+						appendStringInfoChar(&result, *cp++);
 						break;
 				}
 				break;
@@ -132,7 +156,12 @@ jsonpointer_in(PG_FUNCTION_ARGS)
 				switch (*cp++)
 				{
 					case '0':
+						appendStringInfoChar(&result, '~');
+						state = JPTR_PARSE_STATE_ELEM;
+						break;
+
 					case '1':
+						appendStringInfoChar(&result, '/');
 						state = JPTR_PARSE_STATE_ELEM;
 						break;
 
@@ -143,7 +172,7 @@ jsonpointer_in(PG_FUNCTION_ARGS)
 				break;
 
 			default:
-				/* this would be a serious bug */
+				/* invalid parse state is a serious bug */
 				elog(ERROR, "invalid JsonPointer state during parse");
 				break;
 		}
@@ -156,8 +185,9 @@ jsonpointer_in(PG_FUNCTION_ARGS)
 	switch (state)
 	{
 		case JPTR_PARSE_STATE_ELEM:
-			/* still inside of a path element, collect it */
-			jsonpointer_collect_elem(&result, keyStart - input);
+			/* still inside of a path element, set its VARSIZE and count it */
+			SET_VARSIZE(elem, result.len - elem_start);
+			jsonptr->n_elem++;
 			break;
 
 		case JPTR_PARSE_STATE_ESCAPE:
@@ -167,54 +197,6 @@ jsonpointer_in(PG_FUNCTION_ARGS)
 
 		default:
 			break;
-	}
-
-	/*
-	 * Now we finish the elements by converting their offsets, adding their
-	 * actual string data and attempting to convert them into integer values.
-	 */
-	for (i = 0; i < jsonptr->n_elem; i++)
-	{
-		JsonPointerElem	   *elem = &(jsonptr->elem[i]);
-
-		/*
-		 * parse again from where this key started because this time around
-		 * we need to convert the ~0 and ~1 escapes into the literal ~ and /
-		 */
-		cp = &input[elem->keyoff];
-		elem->keyoff = result.len;
-		while (true)
-		{
-			if (*cp == '/' || *cp == '\0')
-				/* unescaped '/' or NUL so this is the end of this key */
-				break;
-
-			if (*cp == '~')
-			{
-				/* escape character, process according to the next */
-				cp++;
-				if (*cp == '0')
-					appendStringInfoChar(&result, '~');
-				else if (*cp == '1')
-					appendStringInfoChar(&result, '/');
-				else
-					elog(ERROR, "invalid jsonpointer escape sequence");
-				cp++;
-				continue;
-			}
-
-			/* nothing special, append verbatim */
-			appendStringInfoChar(&result, *cp++);
-		}
-
-		/*
-		 * record the length of this key string and terminate it with NUL.
-		 * (I don't know if the NUL termnination will become useful at some
-		 * point, but I rather have it now than have to change the on-disk
-		 * format of the jsonpointer data type later).
-		 */
-		elem->keylen = result.len - elem->keyoff;
-		appendStringInfoChar(&result, '\0');
 	}
 
 	/* All done - set the varlena header and return the result */
@@ -231,11 +213,13 @@ Datum
 jsonpointer_out(PG_FUNCTION_ARGS)
 {
 	JsonPointer	   *jsonptr;
+	text		   *elem;
 	StringInfoData	result;
 	int				i;
 
 	/* make sure we have a detoasted, plain jsonpointer object to work on */
 	jsonptr = (JsonPointer *)PG_DETOAST_DATUM(PG_GETARG_DATUM(0));
+	elem = (text *)((char *)(jsonptr) + sizeof(JsonPointer));
 
 	/* initialize the output C-string result buffer */
 	initStringInfo(&result);
@@ -243,8 +227,8 @@ jsonpointer_out(PG_FUNCTION_ARGS)
 	/* process all elements in the jsonpointer */
 	for (i = 0; i < jsonptr->n_elem; i++)
 	{
-		JsonPointerElem	   *elem = &(jsonptr->elem[i]);
-		char			   *cp;
+		char   *cp;
+		int32	elem_len;
 
 		/*
 		 * for each of the path elements we add a '/' and the string
@@ -252,23 +236,29 @@ jsonpointer_out(PG_FUNCTION_ARGS)
 		 * proper '~0' and '~1'.
 		 */
 		appendStringInfoChar(&result, '/');
-		for (cp = (char *)jsonptr + elem->keyoff; *cp; cp++)
+		cp = (char *)VARDATA(elem);
+		for (elem_len = VARSIZE(elem) - VARHDRSZ; elem_len > 0; elem_len--)
 		{
 			if (*cp == '~')
 			{
 				appendStringInfoChar(&result, '~');
 				appendStringInfoChar(&result, '0');
+				cp++;
 			}
 			else if (*cp == '/')
 			{
 				appendStringInfoChar(&result, '~');
 				appendStringInfoChar(&result, '1');
+				cp++;
 			}
 			else
 			{
-				appendStringInfoChar(&result, *cp);
+				appendStringInfoChar(&result, *cp++);
 			}
 		}
+
+		/* advance elem to the next properly aligned text */
+		elem = (text *)INTALIGN((char *)elem + VARSIZE(elem));
 	}
 
 	/* nothing else to do */
@@ -453,29 +443,6 @@ jsonptr_get_timestamptz(PG_FUNCTION_ARGS)
 }
 
 /*
- * jsonpointer_collect_elem()
- *
- * 	Suppot function to finish processing one path element.
- */
-static inline void
-jsonpointer_collect_elem(StringInfo result, int32 keyStart)
-{
-	JsonPointerElem		elem;
-	JsonPointer		   *jptr = (JsonPointer *)(result->data);
-
-	/*
-	 * record the start offset of the key in the element. This is
-	 * for now the offset in the original input buffer. It will later
-	 * be adjusted to the offset in the actual jsonpointer Datum.
-	 */
-	elem.keyoff		= keyStart;
-
-	/* add this element */
-	appendBinaryStringInfoNT(result, &elem, sizeof(elem));
-	jptr->n_elem++;
-}
-
-/*
  * jsonptr_get_jsonb_datum()
  *
  * 	Convert our JsonPointer into an array of text Datums and use
@@ -486,16 +453,18 @@ jsonpointer_collect_elem(StringInfo result, int32 keyStart)
 static Datum
 jsonptr_get_jsonb_datum(Jsonb *jb, JsonPointer *jsonptr, bool *isnull)
 {
-	JsonPointerElem	   *elem;
 	Datum			   *path;
+	text			   *elem;
 	int					i;
+
+	elem = (text *)((char *)jsonptr + sizeof(JsonPointer));
 
 	/* Convert all the JsonPointer elements into text Datums */
 	path = palloc(sizeof(Datum) * jsonptr->n_elem);
 	for (i = 0; i < jsonptr->n_elem; i++)
 	{
-		elem = &jsonptr->elem[i];
-		path[i] = (Datum)cstring_to_text(((char *)jsonptr)+elem->keyoff);
+		path[i] = PointerGetDatum(elem);
+		elem = (text *)INTALIGN((char *)elem + VARSIZE(elem));
 	}
 
 	/* Let jsonb_get_element() do the actual work */
@@ -513,16 +482,18 @@ jsonptr_get_jsonb_datum(Jsonb *jb, JsonPointer *jsonptr, bool *isnull)
 static Datum
 jsonptr_get_text_datum(Jsonb *jb, JsonPointer *jsonptr, bool *isnull)
 {
-	JsonPointerElem	   *elem;
 	Datum			   *path;
+	text			   *elem;
 	int					i;
+
+	elem = (text *)((char *)jsonptr + sizeof(JsonPointer));
 
 	/* Convert all the JsonPointer elements into text Datums */
 	path = palloc(sizeof(Datum) * jsonptr->n_elem);
 	for (i = 0; i < jsonptr->n_elem; i++)
 	{
-		elem = &jsonptr->elem[i];
-		path[i] = (Datum)cstring_to_text(((char *)jsonptr)+elem->keyoff);
+		path[i] = PointerGetDatum(elem);
+		elem = (text *)INTALIGN((char *)elem + VARSIZE(elem));
 	}
 
 	/* Let jsonb_get_element() do the actual work */
