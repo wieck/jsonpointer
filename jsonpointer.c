@@ -34,9 +34,7 @@ PG_FUNCTION_INFO_V1(jsonptr_get_timestamptz);
 #define JPTR_PARSE_STATE_ESCAPE		2
 
 static Datum jsonptr_get_jsonb_datum(Jsonb *jb, JsonPointer *jsonptr,
-									 bool *isnull);
-static Datum jsonptr_get_text_datum(Jsonb *jb, JsonPointer *jsonptr,
-									bool *isnull);
+									 bool *isnull, bool as_text);
 static Datum jsonptr_cast_datum1(Datum value, PGFunction func, bool *isnull,
 								 bool nullonerror);
 static Datum jsonptr_cast_datum3(Datum value, PGFunction func, bool *isnull,
@@ -285,7 +283,7 @@ jsonptr_get_jsonb(PG_FUNCTION_ARGS)
 	jb = PG_GETARG_JSONB_P(0);
 	jsonptr = (JsonPointer *)PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
 
-	result = jsonptr_get_jsonb_datum(jb, jsonptr, &isnull);
+	result = jsonptr_get_jsonb_datum(jb, jsonptr, &isnull, false);
 	if (isnull)
 		PG_RETURN_NULL();
 	else
@@ -311,7 +309,7 @@ jsonptr_get_text(PG_FUNCTION_ARGS)
 	jb = PG_GETARG_JSONB_P(0);
 	jsonptr = (JsonPointer *)PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
 
-	result = jsonptr_get_text_datum(jb, jsonptr, &isnull);
+	result = jsonptr_get_jsonb_datum(jb, jsonptr, &isnull, true);
 	if (isnull)
 		PG_RETURN_NULL();
 	else
@@ -337,7 +335,7 @@ jsonptr_get_int4(PG_FUNCTION_ARGS)
 	jsonptr = (JsonPointer *)PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
 	nullonerror = PG_GETARG_BOOL(2);
 
-	result = jsonptr_get_text_datum(jb, jsonptr, &isnull);
+	result = jsonptr_get_jsonb_datum(jb, jsonptr, &isnull, true);
 	if (isnull)
 		PG_RETURN_NULL();
 
@@ -367,7 +365,7 @@ jsonptr_get_int8(PG_FUNCTION_ARGS)
 	jsonptr = (JsonPointer *)PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
 	nullonerror = PG_GETARG_BOOL(2);
 
-	result = jsonptr_get_text_datum(jb, jsonptr, &isnull);
+	result = jsonptr_get_jsonb_datum(jb, jsonptr, &isnull, true);
 	if (isnull)
 		PG_RETURN_NULL();
 
@@ -397,7 +395,7 @@ jsonptr_get_numeric(PG_FUNCTION_ARGS)
 	jsonptr = (JsonPointer *)PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
 	nullonerror = PG_GETARG_BOOL(2);
 
-	result = jsonptr_get_text_datum(jb, jsonptr, &isnull);
+	result = jsonptr_get_jsonb_datum(jb, jsonptr, &isnull, true);
 	if (isnull)
 		PG_RETURN_NULL();
 
@@ -429,7 +427,7 @@ jsonptr_get_timestamptz(PG_FUNCTION_ARGS)
 	jsonptr = (JsonPointer *)PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
 	nullonerror = PG_GETARG_BOOL(2);
 
-	result = jsonptr_get_text_datum(jb, jsonptr, &isnull);
+	result = jsonptr_get_jsonb_datum(jb, jsonptr, &isnull, true);
 	if (isnull)
 		PG_RETURN_NULL();
 
@@ -447,11 +445,12 @@ jsonptr_get_timestamptz(PG_FUNCTION_ARGS)
  *
  * 	Convert our JsonPointer into an array of text Datums and use
  * 	jsonb_get_element() to find that value. Return it as a jsonb
- * 	Datum for the caller to deal with any conversion that might
- * 	be necessary.
+ * 	or text datum as requested. The caller is responsible for
+ * 	casting it to other data types.
  */
 static Datum
-jsonptr_get_jsonb_datum(Jsonb *jb, JsonPointer *jsonptr, bool *isnull)
+jsonptr_get_jsonb_datum(Jsonb *jb, JsonPointer *jsonptr, bool *isnull,
+						bool as_text)
 {
 	Datum			   *path;
 	text			   *elem;
@@ -468,36 +467,7 @@ jsonptr_get_jsonb_datum(Jsonb *jb, JsonPointer *jsonptr, bool *isnull)
 	}
 
 	/* Let jsonb_get_element() do the actual work */
-	return jsonb_get_element(jb, path, jsonptr->n_elem, isnull, false);
-}
-
-/*
- * jsonptr_get_text_datum()
- *
- * 	Convert our JsonPointer into an array of text Datums and use
- * 	jsonb_get_element() to find that value. Return it as a text
- * 	Datum for the caller to deal with any conversion that might
- * 	be necessary.
- */
-static Datum
-jsonptr_get_text_datum(Jsonb *jb, JsonPointer *jsonptr, bool *isnull)
-{
-	Datum			   *path;
-	text			   *elem;
-	int					i;
-
-	elem = (text *)((char *)jsonptr + sizeof(JsonPointer));
-
-	/* Convert all the JsonPointer elements into text Datums */
-	path = palloc(sizeof(Datum) * jsonptr->n_elem);
-	for (i = 0; i < jsonptr->n_elem; i++)
-	{
-		path[i] = PointerGetDatum(elem);
-		elem = (text *)INTALIGN((char *)elem + VARSIZE(elem));
-	}
-
-	/* Let jsonb_get_element() do the actual work */
-	return jsonb_get_element(jb, path, jsonptr->n_elem, isnull, true);
+	return jsonb_get_element(jb, path, jsonptr->n_elem, isnull, as_text);
 }
 
 /*
