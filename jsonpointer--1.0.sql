@@ -17,16 +17,16 @@ CREATE TYPE jsonpointer (
 	OUTPUT = jsonpointer_out,
 	INTERNALLENGTH = VARIABLE);
 
-CREATE FUNCTION jsonptr_get_text(jsonb, jsonpointer,
-								 nullonerror bool = true)
-	RETURNS text
-	AS '$libdir/jsonpointer', 'jsonptr_get_text'
-	LANGUAGE C STRICT IMMUTABLE;
-
 CREATE FUNCTION jsonptr_get_jsonb(jsonb, jsonpointer,
 								  nullonerror bool = true)
 	RETURNS jsonb
 	AS '$libdir/jsonpointer', 'jsonptr_get_jsonb'
+	LANGUAGE C STRICT IMMUTABLE;
+
+CREATE FUNCTION jsonptr_get_text(jsonb, jsonpointer,
+								 nullonerror bool = true)
+	RETURNS text
+	AS '$libdir/jsonpointer', 'jsonptr_get_text'
 	LANGUAGE C STRICT IMMUTABLE;
 
 CREATE FUNCTION jsonptr_get_int4(jsonb, jsonpointer,

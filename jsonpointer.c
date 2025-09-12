@@ -278,7 +278,7 @@ jsonptr_get_jsonb(PG_FUNCTION_ARGS)
 	Datum			result;
 	bool			isnull;
 
-	/* nullonerror is ignored here because anything can be returned as text */
+	/* nullonerror is ignored here because any jsonb element is jsonb */
 
 	jb = PG_GETARG_JSONB_P(0);
 	jsonptr = (JsonPointer *)PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
