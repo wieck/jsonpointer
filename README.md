@@ -82,7 +82,7 @@ indicates the **PostgreSQL** data type they are attempting to return.
 The function
 
 ```
-jsonptr_get_int8(jsonb, jsonpointer, nullonerror=true)
+jsonpointer_get_int8(jsonb, jsonpointer, nullonerror=true)
 ```
 
 tries to cast the scalar value identified by `jsonpointer` into an
@@ -94,9 +94,9 @@ the string representation of the value cannot be cast into `int8` and
 
 The currently implemented functions are
 
-* `jsonptr_get_jsonb()`
-* `jsonptr_get_text()`
-* `jsonptr_get_int4()`
-* `jsonptr_get_int8()`
-* `jsonptr_get_numeric()`
-* `jsonptr_get_timestamptz()`
+* `jsonpointer_get_jsonb()`
+* `jsonpointer_get_text()`
+* `jsonpointer_get_int4()`
+* `jsonpointer_get_int8()`
+* `jsonpointer_get_numeric()`
+* `jsonpointer_get_timestamptz()`

@@ -21,19 +21,19 @@ PG_MODULE_MAGIC;
 PG_FUNCTION_INFO_V1(jsonpointer_in);
 PG_FUNCTION_INFO_V1(jsonpointer_out);
 
-PG_FUNCTION_INFO_V1(jsonptr_get_jsonb);
-PG_FUNCTION_INFO_V1(jsonptr_get_text);
-PG_FUNCTION_INFO_V1(jsonptr_get_int4);
-PG_FUNCTION_INFO_V1(jsonptr_get_int8);
-PG_FUNCTION_INFO_V1(jsonptr_get_numeric);
-PG_FUNCTION_INFO_V1(jsonptr_get_timestamptz);
+PG_FUNCTION_INFO_V1(jsonpointer_get_jsonb);
+PG_FUNCTION_INFO_V1(jsonpointer_get_text);
+PG_FUNCTION_INFO_V1(jsonpointer_get_int4);
+PG_FUNCTION_INFO_V1(jsonpointer_get_int8);
+PG_FUNCTION_INFO_V1(jsonpointer_get_numeric);
+PG_FUNCTION_INFO_V1(jsonpointer_get_timestamptz);
 
 /* Internal parser states */
 #define JPTR_PARSE_STATE_INIT		0
 #define JPTR_PARSE_STATE_ELEM		1
 #define JPTR_PARSE_STATE_ESCAPE		2
 
-static Datum jsonptr_get_jsonb_datum(Jsonb *jb, JsonPointer *jsonptr,
+static Datum jsonpointer_get_jsonb_datum(Jsonb *jb, JsonPointer *jsonptr,
 									 bool *isnull, bool as_text);
 static Datum jsonptr_cast_datum1(Datum value, PGFunction func, bool *isnull,
 								 bool nullonerror);
@@ -264,14 +264,14 @@ jsonpointer_out(PG_FUNCTION_ARGS)
 }
 
 /*
- * jsonptr_get_jsonb()
+ * jsonpointer_get_jsonb()
  *
  * 	SQL callable function to retrieve a jsonb version of the attribute
  * 	specified by JsonPointer. This could be any subelement, not just a
  * 	scalar value.
  */
 Datum
-jsonptr_get_jsonb(PG_FUNCTION_ARGS)
+jsonpointer_get_jsonb(PG_FUNCTION_ARGS)
 {
 	Jsonb		   *jb;
 	JsonPointer	   *jsonptr;
@@ -283,7 +283,7 @@ jsonptr_get_jsonb(PG_FUNCTION_ARGS)
 	jb = PG_GETARG_JSONB_P(0);
 	jsonptr = (JsonPointer *)PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
 
-	result = jsonptr_get_jsonb_datum(jb, jsonptr, &isnull, false);
+	result = jsonpointer_get_jsonb_datum(jb, jsonptr, &isnull, false);
 	if (isnull)
 		PG_RETURN_NULL();
 	else
@@ -291,13 +291,13 @@ jsonptr_get_jsonb(PG_FUNCTION_ARGS)
 }
 
 /*
- * jsonptr_get_text()
+ * jsonpointer_get_text()
  *
  * 	SQL callable function to retrieve a text version of the attribute
  * 	specified by JsonPointer.
  */
 Datum
-jsonptr_get_text(PG_FUNCTION_ARGS)
+jsonpointer_get_text(PG_FUNCTION_ARGS)
 {
 	Jsonb		   *jb;
 	JsonPointer	   *jsonptr;
@@ -309,7 +309,7 @@ jsonptr_get_text(PG_FUNCTION_ARGS)
 	jb = PG_GETARG_JSONB_P(0);
 	jsonptr = (JsonPointer *)PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
 
-	result = jsonptr_get_jsonb_datum(jb, jsonptr, &isnull, true);
+	result = jsonpointer_get_jsonb_datum(jb, jsonptr, &isnull, true);
 	if (isnull)
 		PG_RETURN_NULL();
 	else
@@ -317,13 +317,13 @@ jsonptr_get_text(PG_FUNCTION_ARGS)
 }
 
 /*
- * jsonptr_get_int4()
+ * jsonpointer_get_int4()
  *
  * 	SQL callable function to retrieve a int4 version of the attribute
  * 	specified by JsonPointer.
  */
 Datum
-jsonptr_get_int4(PG_FUNCTION_ARGS)
+jsonpointer_get_int4(PG_FUNCTION_ARGS)
 {
 	Jsonb		   *jb;
 	JsonPointer	   *jsonptr;
@@ -335,7 +335,7 @@ jsonptr_get_int4(PG_FUNCTION_ARGS)
 	jsonptr = (JsonPointer *)PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
 	nullonerror = PG_GETARG_BOOL(2);
 
-	result = jsonptr_get_jsonb_datum(jb, jsonptr, &isnull, true);
+	result = jsonpointer_get_jsonb_datum(jb, jsonptr, &isnull, true);
 	if (isnull)
 		PG_RETURN_NULL();
 
@@ -347,13 +347,13 @@ jsonptr_get_int4(PG_FUNCTION_ARGS)
 }
 
 /*
- * jsonptr_get_int8()
+ * jsonpointer_get_int8()
  *
  * 	SQL callable function to retrieve a int8 version of the attribute
  * 	specified by JsonPointer.
  */
 Datum
-jsonptr_get_int8(PG_FUNCTION_ARGS)
+jsonpointer_get_int8(PG_FUNCTION_ARGS)
 {
 	Jsonb		   *jb;
 	JsonPointer	   *jsonptr;
@@ -365,7 +365,7 @@ jsonptr_get_int8(PG_FUNCTION_ARGS)
 	jsonptr = (JsonPointer *)PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
 	nullonerror = PG_GETARG_BOOL(2);
 
-	result = jsonptr_get_jsonb_datum(jb, jsonptr, &isnull, true);
+	result = jsonpointer_get_jsonb_datum(jb, jsonptr, &isnull, true);
 	if (isnull)
 		PG_RETURN_NULL();
 
@@ -377,13 +377,13 @@ jsonptr_get_int8(PG_FUNCTION_ARGS)
 }
 
 /*
- * jsonptr_get_numeric()
+ * jsonpointer_get_numeric()
  *
  * 	SQL callable function to retrieve a numeric version of the attribute
  * 	specified by JsonPointer.
  */
 Datum
-jsonptr_get_numeric(PG_FUNCTION_ARGS)
+jsonpointer_get_numeric(PG_FUNCTION_ARGS)
 {
 	Jsonb		   *jb;
 	JsonPointer	   *jsonptr;
@@ -395,7 +395,7 @@ jsonptr_get_numeric(PG_FUNCTION_ARGS)
 	jsonptr = (JsonPointer *)PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
 	nullonerror = PG_GETARG_BOOL(2);
 
-	result = jsonptr_get_jsonb_datum(jb, jsonptr, &isnull, true);
+	result = jsonpointer_get_jsonb_datum(jb, jsonptr, &isnull, true);
 	if (isnull)
 		PG_RETURN_NULL();
 
@@ -409,13 +409,13 @@ jsonptr_get_numeric(PG_FUNCTION_ARGS)
 }
 
 /*
- * jsonptr_get_timestamptz()
+ * jsonpointer_get_timestamptz()
  *
  * 	SQL callable function to retrieve a timestamptz version of the attribute
  * 	specified by JsonPointer.
  */
 Datum
-jsonptr_get_timestamptz(PG_FUNCTION_ARGS)
+jsonpointer_get_timestamptz(PG_FUNCTION_ARGS)
 {
 	Jsonb		   *jb;
 	JsonPointer	   *jsonptr;
@@ -427,7 +427,7 @@ jsonptr_get_timestamptz(PG_FUNCTION_ARGS)
 	jsonptr = (JsonPointer *)PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
 	nullonerror = PG_GETARG_BOOL(2);
 
-	result = jsonptr_get_jsonb_datum(jb, jsonptr, &isnull, true);
+	result = jsonpointer_get_jsonb_datum(jb, jsonptr, &isnull, true);
 	if (isnull)
 		PG_RETURN_NULL();
 
@@ -441,7 +441,7 @@ jsonptr_get_timestamptz(PG_FUNCTION_ARGS)
 }
 
 /*
- * jsonptr_get_jsonb_datum()
+ * jsonpointer_get_jsonb_datum()
  *
  * 	Convert our JsonPointer into an array of text Datums and use
  * 	jsonb_get_element() to find that value. Return it as a jsonb
@@ -449,7 +449,7 @@ jsonptr_get_timestamptz(PG_FUNCTION_ARGS)
  * 	casting it to other data types.
  */
 static Datum
-jsonptr_get_jsonb_datum(Jsonb *jb, JsonPointer *jsonptr, bool *isnull,
+jsonpointer_get_jsonb_datum(Jsonb *jb, JsonPointer *jsonptr, bool *isnull,
 						bool as_text)
 {
 	Datum			   *path;
