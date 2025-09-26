@@ -2,6 +2,8 @@
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
 \echo Use "CREATE EXTENSION jsonpointer" to load this file. \quit
 
+SET search_path TO 'pg_catalog';
+
 CREATE FUNCTION jsonpointer_in(cstring)
 	RETURNS jsonpointer
 	AS '$libdir/jsonpointer', 'jsonpointer_in'
@@ -53,3 +55,4 @@ CREATE FUNCTION jsonpointer_get_timestamptz(jsonb, jsonpointer,
 	AS '$libdir/jsonpointer', 'jsonpointer_get_timestamptz'
 	LANGUAGE C STRICT IMMUTABLE;
 
+RESET search_path;
