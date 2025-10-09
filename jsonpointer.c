@@ -483,25 +483,29 @@ static Datum
 jsonptr_cast_datum1(Datum value, PGFunction func, bool *isnull,
 				   bool nullonerror)
 {
+	volatile Datum result;
+
 	if (nullonerror)
 	{
 		PG_TRY();
 		{
 			char *s = DatumGetCString(DirectFunctionCall1(textout, value));
-			return DirectFunctionCall1(func, CStringGetDatum(s));
+			result = DirectFunctionCall1(func, CStringGetDatum(s));
 		}
 		PG_CATCH();
 		{
 			*isnull = true;
-			return 0;
+			result = 0;
 		}
 		PG_END_TRY();
 	}
 	else
 	{
 		char *s = DatumGetCString(DirectFunctionCall1(textout, value));
-		return DirectFunctionCall1(func, CStringGetDatum(s));
+		result = DirectFunctionCall1(func, CStringGetDatum(s));
 	}
+
+	return result;
 }
 
 /*
@@ -514,23 +518,27 @@ static Datum
 jsonptr_cast_datum3(Datum value, PGFunction func, bool *isnull,
 					bool nullonerror, Datum arg2, Datum arg3)
 {
+	volatile Datum result;
+
 	if (nullonerror)
 	{
 		PG_TRY();
 		{
 			char *s = DatumGetCString(DirectFunctionCall1(textout, value));
-			return DirectFunctionCall3(func, CStringGetDatum(s), arg2, arg3);
+			result = DirectFunctionCall3(func, CStringGetDatum(s), arg2, arg3);
 		}
 		PG_CATCH();
 		{
 			*isnull = true;
-			return 0;
+			result = 0;
 		}
 		PG_END_TRY();
 	}
 	else
 	{
 		char *s = DatumGetCString(DirectFunctionCall1(textout, value));
-		return DirectFunctionCall3(func, CStringGetDatum(s), arg2, arg3);
+		result = DirectFunctionCall3(func, CStringGetDatum(s), arg2, arg3);
 	}
+
+	return result;
 }
