@@ -496,6 +496,7 @@ jsonptr_cast_datum1(Datum value, PGFunction func, bool *isnull,
 		{
 			*isnull = true;
 			result = 0;
+			FlushErrorState();
 		}
 		PG_END_TRY();
 	}
@@ -531,6 +532,7 @@ jsonptr_cast_datum3(Datum value, PGFunction func, bool *isnull,
 		{
 			*isnull = true;
 			result = 0;
+			FlushErrorState();
 		}
 		PG_END_TRY();
 	}
