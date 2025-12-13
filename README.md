@@ -28,7 +28,7 @@ make
 Install the binaries
 
 ```
-sudo $PATH=$PATH make install
+sudo PATH=$PATH make install
 ```
 
 **Note:** sudo is needed because when PostgreSQL is installed from
